@@ -8,9 +8,15 @@ import gdsfactory as gf
 from gdsfactory import Port
 from gdsfactory.component import Component
 from gdsfactory.components.wire import wire_corner
+from gdsfactory.components.via_corner import via_corner
 from gdsfactory.routing import get_route_from_waypoints
 from gdsfactory.routing.manhattan import route_manhattan
-from gdsfactory.typings import CrossSectionSpec, LayerSpec, Route
+from gdsfactory.typings import (
+    CrossSectionSpec,
+    LayerSpec,
+    Route,
+    MultiCrossSectionAngleSpec,
+)
 
 
 class Node:
@@ -31,7 +37,7 @@ def get_route_astar(
     resolution: float = 1,
     avoid_layers: list[LayerSpec] | None = None,
     distance: float = 1,
-    cross_section: CrossSectionSpec = "xs_sc",
+    cross_section: CrossSectionSpec | MultiCrossSectionAngleSpec = "xs_sc",
     **kwargs,
 ) -> Route:
     """A* routing function. Finds a route between two ports avoiding obstacles.
@@ -49,10 +55,7 @@ def get_route_astar(
         cross_section: spec.
         kwargs: cross_section settings.
     """
-    warnings.warn(
-        'get_route_astar is deprecated. Use "get_route" or "get_bundle" instead.'
-    )
-    cross_section = gf.get_cross_section(cross_section, **kwargs)
+    # cross_section = gf.get_cross_section(cross_section, **kwargs)
 
     grid, x, y = _generate_grid(component, resolution, avoid_layers, distance)
 
@@ -127,11 +130,16 @@ def get_route_astar(
             points.append(port2.center)
 
             # return route from points
-            if cross_section.radius:
-                return get_route_from_waypoints(points, cross_section=cross_section)
+            if not isinstance(cross_section, list):
+                if cross_section.radius:
+                    return get_route_from_waypoints(points, cross_section=cross_section)
+                else:
+                    return get_route_from_waypoints(
+                        points, cross_section=cross_section, bend=wire_corner
+                    )
             else:
                 return get_route_from_waypoints(
-                    points, cross_section=cross_section, bend=wire_corner
+                    points, cross_section=cross_section, bend=via_corner
                 )
 
         # Generate neighbours
