@@ -39,7 +39,7 @@ from gdsfactory.routing.get_route import (
     get_route_from_waypoints_electrical_m2,
     get_route_from_waypoints_electrical_multilayer,
 )
-from gdsfactory.routing.get_route_astar import get_route_astar
+from gdsfactory.routing.get_route_astar import get_route_astar, get_points_astar
 from gdsfactory.routing.get_route_from_steps import (
     get_route_from_steps,
     get_route_from_steps_electrical,
