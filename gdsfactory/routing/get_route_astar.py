@@ -16,6 +16,7 @@ from gdsfactory.typings import (
     LayerSpec,
     Route,
     MultiCrossSectionAngleSpec,
+    Coordinates,
 )
 
 
@@ -30,7 +31,7 @@ class Node:
         self.f = self.g + self.h  # cost of the node (sum of g and h)
 
 
-def get_route_astar(
+def get_points_astar(
     component: Component,
     port1: Port,
     port2: Port,
@@ -39,7 +40,7 @@ def get_route_astar(
     distance: float = 1,
     cross_section: CrossSectionSpec | MultiCrossSectionAngleSpec = "xs_sc",
     **kwargs,
-) -> Route:
+) -> Coordinates:
     """A* routing function. Finds a route between two ports avoiding obstacles.
 
     Args:
@@ -130,17 +131,7 @@ def get_route_astar(
             points.append(port2.center)
 
             # return route from points
-            if not isinstance(cross_section, list):
-                if cross_section.radius:
-                    return get_route_from_waypoints(points, cross_section=cross_section)
-                else:
-                    return get_route_from_waypoints(
-                        points, cross_section=cross_section, bend=wire_corner
-                    )
-            else:
-                return get_route_from_waypoints(
-                    points, cross_section=cross_section, bend=via_corner
-                )
+            return points
 
         # Generate neighbours
         neighbours = _generate_neighbours(
@@ -187,7 +178,54 @@ def get_route_astar(
     warnings.warn(
         "A* algorithm failed, resorting to Manhattan routing. Watch for overlaps."
     )
-    return route_manhattan(port1, port2, cross_section=cross_section)
+    return []
+
+
+def get_route_astar(
+    component: Component,
+    port1: Port,
+    port2: Port,
+    resolution: float = 1,
+    avoid_layers: list[LayerSpec] | None = None,
+    distance: float = 1,
+    cross_section: CrossSectionSpec | MultiCrossSectionAngleSpec = "xs_sc",
+    **kwargs,
+) -> Route:
+    """A* routing function. Finds a route between two ports avoiding obstacles.
+
+    Args:
+        component: Component the route, and ports belong to.
+        port1: input.
+        port2: output.
+        resolution: discretization resolution in um.
+            Lower resolution can help avoid accidental overlapping between route
+            and components but adds more bends.
+            The resolution decides how many "leaps/hops" the algorithm has to do.
+        avoid_layers: list of layers to avoid.
+        distance: distance from obstacles in um.
+        cross_section: spec.
+        kwargs: cross_section settings.
+    """
+    # cross_section = gf.get_cross_section(cross_section, **kwargs)
+
+    points = get_points_astar(component, port1, port2, resolution, avoid_layers, distance, cross_section)
+    if points:
+        if not isinstance(cross_section, list):
+            if cross_section.radius:
+                return get_route_from_waypoints(points, cross_section=cross_section)
+            else:
+                return get_route_from_waypoints(
+                    points, cross_section=cross_section, bend=wire_corner
+                )
+        else:
+            return get_route_from_waypoints(
+                points, cross_section=cross_section, bend=via_corner
+            )
+    else:
+        warnings.warn(
+            "A* algorithm failed, resorting to Manhattan routing. Watch for overlaps."
+        )
+        return route_manhattan(port1, port2, cross_section=cross_section)
 
 
 def _extract_all_bbox(c: Component, avoid_layers: list[LayerSpec] | None = None):
